@@ -3,10 +3,19 @@
 TOP=`pwd`
 SCRIPT=`(cd \`dirname $0\`; cd ..; pwd)`
 ARCH=riscv
-CROSS_COMPILE=riscv64-unknown-linux-gnu-
-
-BUSYBOX_CONFIG=config-busybox-$ARCH
-LINUX_CONFIG=config-linux-$ARCH-$MACH
+if [ -z $CROSS_COMPILE ]; then
+	CROSS_COMPILE=riscv64-unknown-linux-gnu-
+fi
+if [ -f $SCRIPT/config/config-busybox-$ARCH-$MACH ]; then
+	BUSYBOX_CONFIG=config-busybox-$ARCH-$MACH
+else
+	BUSYBOX_CONFIG=config-busybox-$ARCH
+fi
+if [ -f $SCRIPT/config/config-linux-$ARCH-$MACH ]; then
+	LINUX_CONFIG=config-linux-$ARCH-$MACH
+else
+	LINUX_CONFIG=config-linux-$ARCH
+fi
 INITRAMFS_FILELIST_TEMPLATE=$ARCH-initramfs-list
 
 if [ -z $BUSYBOX_DIR ]; then

@@ -1,20 +1,41 @@
 #!/bin/sh
 
+TOP=`pwd`
 SCRIPT=`(cd \`dirname $0\`; pwd)`
 WORKING_DIR=`(cd ${SCRIPT}/../..; pwd)`
 
-export ARCH=riscv
-if [ -z $MACH ]; then
-	export MACH=spike
-else
-	export MACH=$MACH
+if [ -z ${ARCH} ]; then
+	export ARCH=riscv
 fi
-export CROSS_COMPILE=riscv64-unknown-linux-gnu-
-export BBL=sdfirm
-export SDFIRM_DIR=${WORKING_DIR}/sdfirm
-export LINUX_DIR=${WORKING_DIR}/linux
-export BUSYBOX_DIR=${WORKING_DIR}/busybox
+if [ -z ${MACH} ]; then
+	export MACH=spike
+fi
+if [ -z ${CROSS_COMPILE} ]; then
+	export CROSS_COMPILE=riscv64-unknown-linux-gnu-
+fi
+if [ -z ${BBL} ]; then
+	export BBL=sdfirm
+fi
+if [ -z ${SDFIRM_DIR} ]; then
+	export SDFIRM_DIR=${WORKING_DIR}/sdfirm
+fi
+if [ -z ${LINUX_DIR} ]; then
+	export LINUX_DIR=${WORKING_DIR}/linux
+fi
+if [ -z ${BUSYBOX_DIR} ]; then
+	export BUSYBOX_DIR=${WORKING_DIR}/busybox
+fi
+
+# Build default applications
+mkdir -p ${TOP}/obj/bench
+(
+	cd ${SDFIRM_DIR}/tests/bench
+	make -f Makefile.target clean
+	make -f Makefile.target
+)
+cp -f ${SDFIRM_DIR}/tests/bench/dhrystone.elf ${TOP}/obj/bench/dhrystone
+cp -f ${SDFIRM_DIR}/tests/bench/linpack.elf ${TOP}/obj/bench/linpack
 
 ${SCRIPT}/build.sh $1
 
-cp -f ${WORKING_DIR}/obj/linux-riscv/arch/${ARCH}/boot/Image ${SDFIRM_DIR}/
+cp -f ${TOP}/obj/linux-riscv/arch/${ARCH}/boot/Image ${SDFIRM_DIR}/Image

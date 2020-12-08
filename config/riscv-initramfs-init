@@ -5,5 +5,9 @@ mount -t sysfs none /sys
 
 echo -e "\nuptime: $(cut -d' ' -f1 /proc/uptime) seconds\n" >> /dev/console
 
+/bench/dhrystone 50
+#/bench/dhrystone 200000000
+#/bench/linpack
+
 /bin/sh -i
 #/bin/sh < /dev/console > /dev/console 2>&1
