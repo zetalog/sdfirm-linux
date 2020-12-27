@@ -52,7 +52,7 @@ Add userspace programs
 
 If you want to add userspace programs, you need to put your pre-built
 programs to sdfirm-linux/bench folder and modify
-sdfirm-linux/config/riscv-initramfs-list to include the image to the
+sdfirm-linux/config/config-initramfs-riscv to include the image to the
 linux rootfs image.
 
 As an example, here is a way to build dhrystone/linpack:
@@ -64,5 +64,5 @@ As an example, here is a way to build dhrystone/linpack:
     $ cp ./sdfirm/tests/bench/dhrystone.elf ./sdfirm-linux/bench/dhrystone
     $ cp ./sdfirm/tests/bench/linpack.elf ./sdfirm-linux/bench/linpack
 
-Note that, the riscv-initramfs-list has already been prepared to include
+Note that, the config-initramfs-riscv has already been prepared to include
 these 2 files if they exist.

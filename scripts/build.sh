@@ -16,7 +16,7 @@ if [ -f $SCRIPT/config/config-linux-$ARCH-$MACH ]; then
 else
 	LINUX_CONFIG=config-linux-$ARCH
 fi
-INITRAMFS_FILELIST_TEMPLATE=$ARCH-initramfs-list
+INITRAMFS_FILELIST_TEMPLATE=config-initramfs-$ARCH
 
 if [ -z $BUSYBOX_DIR ]; then
 	BUSYBOX_DIR=busybox
@@ -51,8 +51,6 @@ INITRAMFS_DIR=obj/initramfs/$ARCH
 INITRAMFS_FILELIST=obj/initramfs/list-$ARCH
 BBL_DIR=obj/bbl
 
-BENCH_BIN_DIR=obj/bench-$ARCH
-
 ARCHIVES_DIR=$TOP/archive
 
 function clean_all()
@@ -79,86 +77,68 @@ function build_busybox()
 	cd -
 }
 
-function build_initramfs_old()
+build_initramfs_busybox()
 {
-	echo "== Build initramfs =="
-	rm -rf $TOP/$INITRAMFS_DIR
-	mkdir -pv $TOP/$INITRAMFS_DIR
-	cd $TOP/$INITRAMFS_DIR
-	mkdir -pv {bin,sbin,dev,etc,proc,sys,usr/{bin,sbin}}
-	cp -av $TOP/obj/busybox-$ARCH/_install/* .
-	sudo mknod dev/ttyS0 c 5 1
-	> ./init
-	echo "#!/bin/busybox sh" >> ./init
-	echo "" >> ./init
-	#echo "/bin/busybox --install -s" >> ./init
-	echo "mount -t proc none /proc" >> ./init
-	echo "mount -t sysfs none /sys" >> ./init
-	#echo "mount -t devtmpfs devtmpfs /dev" >> ./init
-	echo "echo -e \"\nBoot took \$(cut -d' ' -f1 /proc/uptime) seconds\\n\" >> /dev/ttyS0" >> ./init
-	echo "exec setsid sh -c 'exec sh </dev/ttyS0 >/dev/ttyS0 2>&1'" >> ./init
-	chmod +x ./init
-	find . | cpio -H newc -o > $TOP/obj/initramfs-$ARCH.cpio
-	cd -
-	cd $TOP/obj
-	cat initramfs-$ARCH.cpio | gzip > initramfs-$ARCH.gz
-	cd -
+	BUSYBOX_INSTALL=${TOP}/obj/busybox-${ARCH}/_install
+	BUSYBOX_FILES=`ls ${BUSYBOX_INSTALL}$1`
+	for f in ${BUSYBOX_FILES}; do
+		if [ "$f" == "busybox" ]; then
+			echo "file $1/busybox ${BUSYBOX_INSTALL}$1/busybox 755 0 0" >> $TOP/$INITRAMFS_FILELIST
+			continue
+		fi
+		if [ -d ${BUSYBOX_INSTALL}$1/${f} ]; then
+			echo "dir $1/${f} 755 0 0" >> $TOP/$INITRAMFS_FILELIST
+			build_initramfs_busybox $1/$f
+		else
+			echo "slink $1/$f /bin/busybox 777 0 0" >> $TOP/$INITRAMFS_FILELIST
+		fi
+	done
+}
+
+build_initramfs_rootfs()
+{
+	ROOTFS_INSTALL=${SCRIPT}/rootfs
+	ROOTFS_FILES=`ls ${ROOTFS_INSTALL}$1`
+	for f in ${ROOTFS_FILES}; do
+		if [ -d ${ROOTFS_INSTALL}$1/${f} ]; then
+			echo "dir $1/${f} 755 0 0" >> $TOP/$INITRAMFS_FILELIST
+			build_initramfs_rootfs $1/$f
+		else
+			if [ -x ${ROOTFS_INSTALL}$1/${f} ]; then
+				echo "file $1/$f ${ROOTFS_INSTALL}$1/$f 755 0 0" >> $TOP/$INITRAMFS_FILELIST
+			else
+				echo "file $1/$f ${ROOTFS_INSTALL}$1/$f 644 0 0" >> $TOP/$INITRAMFS_FILELIST
+			fi
+		fi
+	done
 }
 
 function build_initramfs()
 {
 	echo "== Build initramfs =="
+
+	echo "Installing initramfs..."
 	rm -rf $TOP/$INITRAMFS_DIR
 	mkdir -pv $TOP/$INITRAMFS_DIR
-	cp -rf $SCRIPT/config/$INITRAMFS_FILELIST_TEMPLATE $TOP/$INITRAMFS_FILELIST
-	cp -rf $SCRIPT/config/riscv-initramfs-init $TOP/obj/riscv-initramfs-init
-	cd $TOP/$INITRAMFS_DIR
-	cp -av $TOP/obj/busybox-$ARCH/_install/* .
-	if [ -x ./bin ]
-	then
-		for f in `ls ./bin`
-		do
-			if [ "$f" == "busybox" ]
-			then
-				continue
-			fi
-			grep $f $TOP/$INITRAMFS_FILELIST >> /dev/null
-			if [ $? == 1 ]
-			then
-				echo "slink /bin/$f busybox 777 0 0" >> $TOP/$INITRAMFS_FILELIST
-			fi
-		done
-	fi
-	if [ -x ./sbin ]
-	then
-		for f in `ls ./sbin`
-		do
-			grep $f $TOP/$INITRAMFS_FILELIST >> /dev/null
-			if [ $? == 1 ]
-			then
-				echo "slink /sbin/$f ../bin/busybox 777 0 0" >> $TOP/$INITRAMFS_FILELIST
-			fi
-		done
-	fi
-	if [ -x ./usr/sbin ]
-	then
-		for f in `ls ./usr/bin`
-		do
-			grep $f $TOP/$INITRAMFS_FILELIST >> /dev/null
-			if [ $? == 1 ]
-			then
-				echo "slink /usr/bin/$f ../../bin/busybox 777 0 0" >> $TOP/$INITRAMFS_FILELIST
-			fi
-		done
-	fi
+	cp -rf $SCRIPT/config/$INITRAMFS_FILELIST_TEMPLATE \
+		$TOP/$INITRAMFS_FILELIST
 
-	mkdir ./bench
-	if [ -x $TOP/$BENCH_BIN_DIR ]
-	then
-		cp -rf $TOP/$BENCH_BIN_DIR/* ./bench
-		for f in `ls ./bench`
-		do
-			echo "file /bench/$f ../../$INITRAMFS_DIR/bench/$f 755 0 0" >> $TOP/$INITRAMFS_FILELIST
+	echo "Installing busybox..."
+	cp -av $TOP/obj/busybox-$ARCH/_install/* $TOP/$INITRAMFS_DIR
+	build_initramfs_busybox
+
+	# TODO: Smarter way to build rootfs
+	# Currently we only lists files in config-initramfs-${ARCH}
+	echo "Installing rootfs..."
+	rm -rf $TOP/obj/rootfs
+	build_initramfs_rootfs
+
+	echo "Installing benchmarks..."
+	if [ -x $TOP/obj/bench ]; then
+		echo "dir /usr/local 755 0 0" >> $TOP/$INITRAMFS_FILELIST
+		echo "dir /usr/local/bin 755 0 0" >> $TOP/$INITRAMFS_FILELIST
+		for f in `ls $TOP/obj/bench`; do
+			echo "file /usr/local/bin/$f $TOP/obj/bench/$f 755 0 0" >> $TOP/$INITRAMFS_FILELIST
 		done
 	fi
 
@@ -166,7 +146,6 @@ function build_initramfs()
 	grep INITRAMFS_SOURCE $SCRIPT/config/$LINUX_CONFIG
 	echo "So initramfs is built not here now but together with kernel later"
 	cat $TOP/$INITRAMFS_FILELIST
-	cd -
 }
 
 function build_linux()
