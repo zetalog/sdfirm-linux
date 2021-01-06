@@ -28,13 +28,23 @@ fi
 
 # Build default applications
 mkdir -p ${TOP}/obj/bench
-(
-	cd ${SDFIRM_DIR}/tests/bench
+APPDIRS="bench net"
+APPELFS="		\
+	bench/dhrystone	\
+	bench/linpack	\
+	net/loopback	\
+"
+
+for d in ${APPDIRS}; do
+	(
+	cd ${SDFIRM_DIR}/tests/$d
 	make -f Makefile.target clean
 	make -f Makefile.target
-)
-cp -f ${SDFIRM_DIR}/tests/bench/dhrystone.elf ${TOP}/obj/bench/dhrystone
-cp -f ${SDFIRM_DIR}/tests/bench/linpack.elf ${TOP}/obj/bench/linpack
+	)
+done
+for f in ${APPELFS}; do
+	cp -f ${SDFIRM_DIR}/tests/${f}.elf ${TOP}/obj/bench/`basename ${f}`
+done
 
 ${SCRIPT}/build.sh $1
 

@@ -7,6 +7,9 @@ mount -t sysfs none /sys
 
 echo -e "\nuptime: $(cut -d' ' -f1 /proc/uptime) seconds\n" >> /dev/console
 
+ip addr add 127.0.0.1/8 dev lo
+ip link set lo up
+
 dhrystone 50
 #dhrystone 200000000
 #linpack
